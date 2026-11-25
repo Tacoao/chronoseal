@@ -13,6 +13,8 @@ resources:
   - capsule-service/serviceaccount.yaml
   - capsule-service/deployment.yaml
   - capsule-service/service.yaml
+  - gateway/gateway.yaml
+  - gateway/virtualservice.yaml
 
 images:
   - name: capsule-service

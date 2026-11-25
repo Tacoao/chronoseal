@@ -1,0 +1,26 @@
+# Seule l'API est exposée, ni Actuator ni seal-service.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: chronoseal-routes
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - chronoseal-gateway
+  http:
+    - name: capsules-api
+      match:
+        - uri:
+            prefix: /api/capsules
+      route:
+        - destination:
+            host: capsule-service
+            port:
+              number: 8080
+      timeout: 10s
+      retries:
+        # Seulement si la requête n'est jamais arrivée, pour ne pas créer de doublon.
+        attempts: 2
+        perTryTimeout: 4s
+        retryOn: connect-failure,refused-stream
