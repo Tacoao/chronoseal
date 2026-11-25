@@ -69,6 +69,29 @@ def test_python() -> None:
     run([sys.executable, "-m", "pytest"], cwd=SEAL_SERVICE)
 
 
+def lint_java() -> None:
+    run([*gradle_command(), "checkstyleMain", "checkstyleTest"], cwd=CAPSULE_SERVICE)
+
+
+def lint_python() -> None:
+    ruff = [sys.executable, "-m", "ruff"]
+    run([*ruff, "check", "app", "tests"], cwd=SEAL_SERVICE)
+    run([*ruff, "format", "--check", "app", "tests"], cwd=SEAL_SERVICE)
+    run([*ruff, "check", "scripts"])
+    run([*ruff, "format", "--check", "scripts"])
+
+
+def lint() -> None:
+    lint_java()
+    lint_python()
+
+
+def verify() -> None:
+    """Portes locales : tests puis qualité. S'arrête au premier échec (code 1)."""
+    test()
+    lint()
+
+
 def test() -> None:
     test_java()
     test_python()
@@ -169,12 +192,16 @@ def prerequisites() -> None:
 COMMANDS = {
     "compose-down": compose_down,
     "compose-up": compose_up,
+    "lint": lint,
+    "lint-java": lint_java,
+    "lint-python": lint_python,
     "prerequisites": prerequisites,
     "proto-python": proto_python,
     "smoke": smoke,
     "test": test,
     "test-java": test_java,
     "test-python": test_python,
+    "verify": verify,
 }
 
 
