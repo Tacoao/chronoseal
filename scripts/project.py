@@ -9,6 +9,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -23,7 +24,11 @@ PROTO_DIR = ROOT / "proto"
 CAPSULE_SERVICE = ROOT / "apps" / "capsule-service"
 SEAL_SERVICE = ROOT / "apps" / "seal-service"
 SEAL_GENERATED = SEAL_SERVICE / "gen"
+WORKFLOWS = ROOT / ".github" / "workflows"
 API_URL = f"http://localhost:{os.environ.get('CAPSULE_HTTP_PORT', '8080')}"
+
+ACTION_SHA = re.compile(r"^[0-9a-f]{40}$")
+IMAGE_DIGEST = re.compile(r"@sha256:[0-9a-f]{64}$")
 
 
 def run(command: list[str], *, cwd: Path = ROOT) -> None:
@@ -86,10 +91,58 @@ def lint() -> None:
     lint_python()
 
 
+def workflow_reference_errors(path: Path) -> list[str]:
+    errors = []
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        stripped = line.strip().removeprefix("- ").strip()
+        if not stripped.startswith("uses:"):
+            continue
+        reference = stripped.removeprefix("uses:").split("#", maxsplit=1)[0].strip().strip("'\"")
+        location = f"{path.relative_to(ROOT)}:{number}"
+        if reference.startswith("./"):
+            continue
+        if reference.startswith("docker://"):
+            if not IMAGE_DIGEST.search(reference):
+                errors.append(f"{location}: image {reference} sans digest SHA-256")
+            continue
+        version = reference.rsplit("@", maxsplit=1)[1] if "@" in reference else ""
+        if not ACTION_SHA.fullmatch(version):
+            errors.append(f"{location}: action {reference} non épinglée par un SHA complet")
+    return errors
+
+
+def dockerfile_reference_errors(path: Path) -> list[str]:
+    errors = []
+    stages: set[str] = set()
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        words = line.split()
+        if not words or words[0].upper() != "FROM":
+            continue
+        arguments = [word for word in words[1:] if not word.startswith("--")]
+        image = arguments[0] if arguments else ""
+        # FROM vers une étape précédente : rien à télécharger, donc pas de digest.
+        if image.lower() not in stages and not IMAGE_DIGEST.search(image):
+            errors.append(f"{path.relative_to(ROOT)}:{number}: image {image} sans digest SHA-256")
+        if len(arguments) >= 3 and arguments[1].upper() == "AS":
+            stages.add(arguments[2].lower())
+    return errors
+
+
+def supply_chain_policy() -> None:
+    errors = []
+    for workflow in sorted([*WORKFLOWS.glob("*.yml"), *WORKFLOWS.glob("*.yaml")]):
+        errors.extend(workflow_reference_errors(workflow))
+    for dockerfile in sorted((ROOT / "apps").glob("*/Dockerfile")):
+        errors.extend(dockerfile_reference_errors(dockerfile))
+    if errors:
+        raise RuntimeError("Politique de chaîne logicielle non respectée :\n" + "\n".join(errors))
+    print("OK politique de chaîne logicielle")
+
+
 def verify() -> None:
-    """Portes locales : tests puis qualité. S'arrête au premier échec (code 1)."""
     test()
     lint()
+    supply_chain_policy()
 
 
 def test() -> None:
@@ -198,6 +251,7 @@ COMMANDS = {
     "prerequisites": prerequisites,
     "proto-python": proto_python,
     "smoke": smoke,
+    "supply-chain-policy": supply_chain_policy,
     "test": test,
     "test-java": test_java,
     "test-python": test_python,
