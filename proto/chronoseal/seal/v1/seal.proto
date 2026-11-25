@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+// capsule-service appelle seal-service, le seul à détenir la clé maîtresse.
+package chronoseal.seal.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option java_multiple_files = true;
+option java_package = "fr.chronoseal.seal.v1";
+option java_outer_classname = "SealProto";
+
+service SealService {
+  // INVALID_ARGUMENT si l'id ou le contenu est vide, trop gros, ou la date passée.
+  rpc Seal(SealRequest) returns (SealResponse);
+
+  // FAILED_PRECONDITION avant la date, DATA_LOSS si quelque chose a été modifié,
+  // NOT_FOUND si key_id est inconnu.
+  rpc Unseal(UnsealRequest) returns (UnsealResponse);
+}
+
+message SealRequest {
+  string capsule_id = 1;
+  bytes plaintext = 2;
+  google.protobuf.Timestamp unlock_at = 3;
+}
+
+message SealedPayload {
+  // pour la rotation des clés
+  string key_id = 1;
+  bytes nonce = 2;
+  bytes ciphertext = 3;
+}
+
+message SealResponse {
+  SealedPayload payload = 1;
+  // SHA-256(sel || contenu), en hexadécimal
+  string commitment = 2;
+}
+
+message UnsealRequest {
+  string capsule_id = 1;
+  google.protobuf.Timestamp unlock_at = 2;
+  SealedPayload payload = 3;
+}
+
+message UnsealResponse {
+  bytes plaintext = 1;
+  bytes salt = 2;
+}
