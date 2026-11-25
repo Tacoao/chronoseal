@@ -1,6 +1,6 @@
 # docker build --build-context proto=../../proto -t seal-service .
 
-FROM python:3.12-slim AS builder
+FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b AS builder
 WORKDIR /build
 COPY requirements.txt requirements-build.txt ./
 RUN pip install --no-cache-dir --prefix=/install -r requirements.txt \
@@ -9,7 +9,7 @@ COPY --from=proto . /proto
 RUN mkdir gen && python -m grpc_tools.protoc --proto_path=/proto \
     --python_out=gen --grpc_python_out=gen chronoseal/seal/v1/seal.proto
 
-FROM python:3.12-slim
+FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONPATH=/app/gen
