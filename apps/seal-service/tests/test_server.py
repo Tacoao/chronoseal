@@ -56,7 +56,7 @@ def test_round_trip_over_grpc(stub, clock):
 
     assert opened.plaintext == b"bonjour"
     assert len(opened.salt) == 16
-    assert len(sealed.commitment) == 63
+    assert len(sealed.commitment) == 64
 
 
 def test_still_sealed_maps_to_failed_precondition(stub):
