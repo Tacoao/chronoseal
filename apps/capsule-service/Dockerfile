@@ -1,6 +1,6 @@
 # docker build --build-context proto=../../proto -t capsule-service .
 
-FROM gradle:8.14-jdk17@sha256:a9ead09d1462d8c4ae77554f63200a0088c687e2edb628071537bb84ceaf71fe AS builder
+FROM gradle:8.14-jdk17@sha256:4adc63f5657468850c2012dc27efba47a25a61fab5a4993f4ff3bf8f295a751c AS builder
 WORKDIR /workspace/apps/capsule-service
 COPY --from=proto . /workspace/proto
 COPY . .
