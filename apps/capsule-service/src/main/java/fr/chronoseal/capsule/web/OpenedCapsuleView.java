@@ -12,7 +12,9 @@ public record OpenedCapsuleView(
         String author,
         Instant createdAt,
         Instant unlockAt,
-        String message) {
+        String message,
+        String commitment,
+        String salt) {
 
     static OpenedCapsuleView of(OpenedCapsule opened) {
         Capsule capsule = opened.capsule();
@@ -22,6 +24,8 @@ public record OpenedCapsuleView(
                 capsule.getAuthor(),
                 capsule.getCreatedAt(),
                 capsule.getUnlockAt(),
-                opened.message());
+                opened.message(),
+                capsule.getCommitment(),
+                opened.salt());
     }
 }

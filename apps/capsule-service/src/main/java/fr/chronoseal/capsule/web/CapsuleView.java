@@ -13,7 +13,8 @@ public record CapsuleView(
         Instant createdAt,
         Instant unlockAt,
         boolean sealed,
-        long secondsRemaining) {
+        long secondsRemaining,
+        String commitment) {
 
     static CapsuleView of(Capsule capsule, Instant now) {
         boolean sealed = capsule.isSealedAt(now);
@@ -25,6 +26,7 @@ public record CapsuleView(
                 capsule.getCreatedAt(),
                 capsule.getUnlockAt(),
                 sealed,
-                remaining);
+                remaining,
+                capsule.getCommitment());
     }
 }

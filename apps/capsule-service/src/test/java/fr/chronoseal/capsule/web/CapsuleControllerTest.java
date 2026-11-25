@@ -30,6 +30,9 @@ import fr.chronoseal.capsule.domain.Capsule;
 import fr.chronoseal.capsule.domain.CapsuleNotFoundException;
 import fr.chronoseal.capsule.domain.CapsuleStillSealedException;
 import fr.chronoseal.capsule.domain.InvalidUnlockDateException;
+import fr.chronoseal.capsule.seal.SealIntegrityException;
+import fr.chronoseal.capsule.seal.SealServiceException;
+import fr.chronoseal.capsule.seal.SealServiceUnavailableException;
 import fr.chronoseal.capsule.service.CapsuleService;
 import fr.chronoseal.capsule.service.OpenedCapsule;
 
@@ -55,7 +58,7 @@ class CapsuleControllerTest {
     }
 
     private static Capsule capsule(Instant unlockAt) {
-        return new Capsule(ID, "Pronostic", "ali", NOW, unlockAt, "France 2 - 1");
+        return new Capsule(ID, "Pronostic", "ali", NOW, unlockAt, "k1", new byte[12], new byte[] {1, 2, 3}, "c0ffee");
     }
 
     @Test
@@ -72,7 +75,9 @@ class CapsuleControllerTest {
                 .andExpect(header().string("Location", containsString("/api/capsules/" + ID)))
                 .andExpect(jsonPath("$.sealed").value(true))
                 .andExpect(jsonPath("$.secondsRemaining").value(3600))
-                .andExpect(jsonPath("$.message").doesNotExist());
+                .andExpect(jsonPath("$.commitment").value("c0ffee"))
+                .andExpect(jsonPath("$.message").doesNotExist())
+                .andExpect(jsonPath("$.ciphertext").doesNotExist());
     }
 
     @Test
@@ -137,10 +142,42 @@ class CapsuleControllerTest {
 
     @Test
     void returnsContentOnceOpened() throws Exception {
-        given(service.open(ID)).willReturn(new OpenedCapsule(capsule(NOW.minusSeconds(1)), "France 2 - 1"));
+        given(service.open(ID)).willReturn(new OpenedCapsule(capsule(NOW.minusSeconds(1)), "France 2 - 1", "0102"));
 
         mvc.perform(get("/api/capsules/" + ID + "/content"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("France 2 - 1"));
+                .andExpect(jsonPath("$.message").value("France 2 - 1"))
+                .andExpect(jsonPath("$.commitment").value("c0ffee"))
+                .andExpect(jsonPath("$.salt").value("0102"));
+    }
+
+    @Test
+    void returnsServiceUnavailableWhenSealServiceIsDown() throws Exception {
+        given(service.open(ID)).willThrow(new SealServiceUnavailableException("indisponible", null));
+
+        mvc.perform(get("/api/capsules/" + ID + "/content"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.title").value("Scellement indisponible"));
+    }
+
+    @Test
+    void returnsServerErrorWhenIntegrityIsCompromised() throws Exception {
+        given(service.open(ID)).willThrow(new SealIntegrityException("altéré", null));
+
+        mvc.perform(get("/api/capsules/" + ID + "/content"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.title").value("Intégrité de la capsule compromise"));
+    }
+
+    @Test
+    void returnsBadGatewayOnUnexpectedSealError() throws Exception {
+        given(service.create(any())).willThrow(new SealServiceException("erreur", null));
+
+        mvc.perform(post("/api/capsules")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"title": "t", "message": "m", "unlockAt": "2026-11-25T11:00:00Z"}
+                                """))
+                .andExpect(status().isBadGateway());
     }
 }

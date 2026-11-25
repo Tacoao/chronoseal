@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.UUID;
 
@@ -13,6 +14,10 @@ import fr.chronoseal.capsule.domain.Capsule;
 import fr.chronoseal.capsule.domain.CapsuleNotFoundException;
 import fr.chronoseal.capsule.domain.CapsuleStillSealedException;
 import fr.chronoseal.capsule.domain.InvalidUnlockDateException;
+import fr.chronoseal.capsule.seal.SealClient;
+import fr.chronoseal.capsule.seal.SealTimeLockException;
+import fr.chronoseal.capsule.seal.SealedContent;
+import fr.chronoseal.capsule.seal.UnsealedContent;
 
 @Service
 public class CapsuleService {
@@ -21,10 +26,12 @@ public class CapsuleService {
     static final Duration MAX_HORIZON = Duration.ofDays(36_525);
 
     private final CapsuleStore store;
+    private final SealClient sealClient;
     private final Clock clock;
 
-    public CapsuleService(CapsuleStore store, Clock clock) {
+    public CapsuleService(CapsuleStore store, SealClient sealClient, Clock clock) {
         this.store = store;
+        this.sealClient = sealClient;
         this.clock = clock;
     }
 
@@ -37,13 +44,18 @@ public class CapsuleService {
         if (unlockAt.isAfter(now.plus(MAX_HORIZON))) {
             throw new InvalidUnlockDateException("La date d'ouverture ne peut pas dépasser cent ans.");
         }
+        UUID id = UUID.randomUUID();
+        SealedContent sealed = sealClient.seal(id, request.message(), unlockAt);
         Capsule capsule = new Capsule(
-                UUID.randomUUID(),
+                id,
                 request.title().strip(),
                 normalizeAuthor(request.author()),
                 now,
                 unlockAt,
-                request.message());
+                sealed.keyId(),
+                sealed.nonce(),
+                sealed.ciphertext(),
+                sealed.commitment());
         return store.save(capsule);
     }
 
@@ -59,9 +71,22 @@ public class CapsuleService {
         Capsule capsule = get(id);
         Instant now = clock.instant();
         if (capsule.isSealedAt(now)) {
-            throw new CapsuleStillSealedException(id, capsule.getUnlockAt(), Duration.between(now, capsule.getUnlockAt()));
+            throw stillSealed(capsule, now);
         }
-        return new OpenedCapsule(capsule, capsule.getMessage());
+        SealedContent sealed = new SealedContent(
+                capsule.getKeyId(), capsule.getNonce(), capsule.getCiphertext(), capsule.getCommitment());
+        try {
+            UnsealedContent content = sealClient.unseal(id, capsule.getUnlockAt(), sealed);
+            return new OpenedCapsule(capsule, content.message(), HexFormat.of().formatHex(content.salt()));
+        } catch (SealTimeLockException exception) {
+            // Les deux horloges peuvent différer un peu, c'est seal-service qui tranche.
+            throw stillSealed(capsule, now);
+        }
+    }
+
+    private static CapsuleStillSealedException stillSealed(Capsule capsule, Instant now) {
+        return new CapsuleStillSealedException(
+                capsule.getId(), capsule.getUnlockAt(), Duration.between(now, capsule.getUnlockAt()));
     }
 
     private static String normalizeAuthor(String author) {

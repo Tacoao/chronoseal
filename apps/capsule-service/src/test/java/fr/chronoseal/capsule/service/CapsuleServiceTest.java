@@ -3,6 +3,7 @@ package fr.chronoseal.capsule.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.UUID;
@@ -14,6 +15,7 @@ import fr.chronoseal.capsule.domain.Capsule;
 import fr.chronoseal.capsule.domain.CapsuleNotFoundException;
 import fr.chronoseal.capsule.domain.CapsuleStillSealedException;
 import fr.chronoseal.capsule.domain.InvalidUnlockDateException;
+import fr.chronoseal.capsule.support.FakeSealClient;
 import fr.chronoseal.capsule.support.MutableClock;
 
 class CapsuleServiceTest {
@@ -21,12 +23,14 @@ class CapsuleServiceTest {
     private static final Instant NOW = Instant.parse("2026-11-25T10:00:00Z");
 
     private MutableClock clock;
+    private FakeSealClient sealClient;
     private CapsuleService service;
 
     @BeforeEach
     void setUp() {
         clock = new MutableClock(NOW);
-        service = new CapsuleService(new InMemoryCapsuleStore(), clock);
+        sealClient = new FakeSealClient();
+        service = new CapsuleService(new InMemoryCapsuleStore(), sealClient, clock);
     }
 
     @Test
@@ -38,6 +42,15 @@ class CapsuleServiceTest {
         assertThat(capsule.getAuthor()).isNull();
         assertThat(capsule.getCreatedAt()).isEqualTo(NOW);
         assertThat(service.get(capsule.getId())).isSameAs(capsule);
+    }
+
+    @Test
+    void storesOnlySealedContent() {
+        Capsule capsule = service.create(new NewCapsule("t", null, "France 2 - 1", NOW.plusSeconds(3600)));
+
+        assertThat(new String(capsule.getCiphertext(), StandardCharsets.UTF_8)).doesNotContain("France");
+        assertThat(capsule.getKeyId()).isEqualTo("fake-key");
+        assertThat(capsule.getCommitment()).isEqualTo("commitment-of-" + capsule.getId());
     }
 
     @Test
@@ -68,7 +81,7 @@ class CapsuleServiceTest {
     }
 
     @Test
-    void refusesToOpenBeforeUnlockDate() {
+    void refusesToOpenBeforeUnlockDateWithoutCallingSealService() {
         Capsule capsule = service.create(new NewCapsule("t", null, "secret", NOW.plusSeconds(90)));
         clock.advance(Duration.ofSeconds(30));
 
@@ -77,16 +90,29 @@ class CapsuleServiceTest {
                     assertThat(error.getUnlockAt()).isEqualTo(NOW.plusSeconds(90));
                     assertThat(error.getRemaining()).isEqualTo(Duration.ofSeconds(60));
                 });
+        assertThat(sealClient.unsealCalls()).isZero();
     }
 
     @Test
-    void opensExactlyAtUnlockDate() {
+    void opensExactlyAtUnlockDateAndRevealsSalt() {
         Capsule capsule = service.create(new NewCapsule("t", null, "secret", NOW.plusSeconds(90)));
         clock.advance(Duration.ofSeconds(90));
 
         OpenedCapsule opened = service.open(capsule.getId());
 
         assertThat(opened.message()).isEqualTo("secret");
+        assertThat(opened.salt()).isEqualTo("01020304");
+    }
+
+    @Test
+    void sealServiceClockPrevailsWhenItRefusesToOpen() {
+        Capsule capsule = service.create(new NewCapsule("t", null, "secret", NOW.plusSeconds(90)));
+        clock.advance(Duration.ofSeconds(91));
+        sealClient.refuseUnseal();
+
+        assertThatThrownBy(() -> service.open(capsule.getId()))
+                .isInstanceOfSatisfying(CapsuleStillSealedException.class,
+                        error -> assertThat(error.getRemaining()).isEqualTo(Duration.ZERO));
     }
 
     @Test
