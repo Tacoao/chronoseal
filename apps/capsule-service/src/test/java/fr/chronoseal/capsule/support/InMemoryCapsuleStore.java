@@ -1,4 +1,4 @@
-package fr.chronoseal.capsule.service;
+package fr.chronoseal.capsule.support;
 
 import java.util.Comparator;
 import java.util.List;
@@ -7,18 +7,10 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-import org.springframework.stereotype.Repository;
-
 import fr.chronoseal.capsule.domain.Capsule;
+import fr.chronoseal.capsule.service.CapsuleStore;
 
-/**
- * Stockage volatil, propre à chaque instance du service.
- *
- * <p>Suffisant pour une première version à une seule réplique : les capsules
- * disparaissent au redémarrage du pod.</p>
- */
-@Repository
-public class InMemoryCapsuleStore implements CapsuleStore {
+public final class InMemoryCapsuleStore implements CapsuleStore {
 
     private final Map<UUID, Capsule> capsules = new ConcurrentHashMap<>();
 

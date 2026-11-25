@@ -16,6 +16,7 @@ import fr.chronoseal.capsule.domain.CapsuleNotFoundException;
 import fr.chronoseal.capsule.domain.CapsuleStillSealedException;
 import fr.chronoseal.capsule.domain.InvalidUnlockDateException;
 import fr.chronoseal.capsule.support.FakeSealClient;
+import fr.chronoseal.capsule.support.InMemoryCapsuleStore;
 import fr.chronoseal.capsule.support.MutableClock;
 
 class CapsuleServiceTest {
