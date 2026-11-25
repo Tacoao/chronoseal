@@ -56,7 +56,9 @@ class SealServicer(seal_pb2_grpc.SealServiceServicer):
 
     def Unseal(self, request: seal_pb2.UnsealRequest, context: grpc.ServicerContext):
         if not request.HasField("unlock_at") or not request.HasField("payload"):
-            context.abort(grpc.StatusCode.INVALID_ARGUMENT, "unlock_at et payload sont obligatoires.")
+            context.abort(
+                grpc.StatusCode.INVALID_ARGUMENT, "unlock_at et payload sont obligatoires."
+            )
         payload = SealedPayload(
             key_id=request.payload.key_id,
             nonce=request.payload.nonce,

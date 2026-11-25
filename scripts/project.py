@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Commandes portables du projet Chronoseal, utilisées en local et par la CI."""
+"""Commandes du projet Chronoseal, les mêmes en local et dans la CI."""
+
+# Compatible Python 3.9 pour que `prerequisites` puisse dire que la version est trop vieille.
 
 from __future__ import annotations
 
@@ -11,7 +13,7 @@ import shutil
 import subprocess
 import sys
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -120,7 +122,7 @@ def expect(condition: bool, message: str) -> None:
 
 def smoke() -> None:
     wait_for(f"{API_URL}/actuator/health/readiness")
-    unlock_at = datetime.now(UTC).replace(microsecond=0) + timedelta(seconds=3)
+    unlock_at = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(seconds=3)
     status, created = http(
         "POST",
         "/api/capsules",
@@ -132,7 +134,7 @@ def smoke() -> None:
     status, _ = http("GET", f"/api/capsules/{created['id']}/content")
     expect(status == 423, f"ouverture refusée avant l'échéance (HTTP {status})")
 
-    time.sleep(max(0.0, (unlock_at - datetime.now(UTC)).total_seconds()) + 1.5)
+    time.sleep(max(0.0, (unlock_at - datetime.now(timezone.utc)).total_seconds()) + 1.5)
     status, opened = http("GET", f"/api/capsules/{created['id']}/content")
     expect(status == 200, f"capsule ouverte après l'échéance (HTTP {status})")
     expect(opened.get("message") == "Bonjour le futur", "contenu restitué à l'identique")
