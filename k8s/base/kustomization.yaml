@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: chronoseal
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: chronoseal
+    includeSelectors: false
+
+resources:
+  - namespace.yaml
+  - capsule-service/serviceaccount.yaml
+  - capsule-service/deployment.yaml
+  - capsule-service/service.yaml
+
+images:
+  - name: capsule-service
+    newName: ghcr.io/tacoao/chronoseal/capsule-service
+    newTag: latest

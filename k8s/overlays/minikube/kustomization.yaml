@@ -1,0 +1,13 @@
+# Variante locale : images construites directement dans Minikube
+# (minikube image build), sans passer par un registre.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+# Avec un tag autre que latest, Kubernetes utilise l'image locale.
+images:
+  - name: ghcr.io/tacoao/chronoseal/capsule-service
+    newName: chronoseal/capsule-service
+    newTag: dev
