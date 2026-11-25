@@ -12,7 +12,7 @@ version = '0.1.0'
 ext {
     // grpc-java 1.86 est compilé contre protobuf-java 3.25.x.
     grpcVersion = '1.86.0'
-    protobufVersion = '3.25.9'
+    protobufVersion = '4.36.2'
     // Le Dockerfile passe un autre chemin avec -PprotoDir.
     protoDir = findProperty('protoDir') ?: "${rootDir}/../../proto"
 }
