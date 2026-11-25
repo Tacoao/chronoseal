@@ -1,0 +1,38 @@
+services:
+  capsule-service:
+    build:
+      context: ./apps/capsule-service
+      additional_contexts:
+        proto: ./proto
+    image: chronoseal/capsule-service:dev
+    ports:
+      - "${CAPSULE_HTTP_PORT:-8080}:8080"
+    environment:
+      CHRONOSEAL_SEAL_HOST: seal-service
+      CHRONOSEAL_SEAL_PORT: "50051"
+    depends_on:
+      seal-service:
+        condition: service_healthy
+    networks:
+      - chronoseal
+
+  seal-service:
+    build:
+      context: ./apps/seal-service
+      additional_contexts:
+        proto: ./proto
+    image: chronoseal/seal-service:dev
+    environment:
+      # Clé jetable, uniquement en local. Dans Kubernetes elle vient d'un Secret.
+      SEAL_ALLOW_EPHEMERAL_KEY: "true"
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - chronoseal
+
+networks:
+  chronoseal:
+    driver: bridge

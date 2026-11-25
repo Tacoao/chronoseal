@@ -4,17 +4,24 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
 import shutil
 import subprocess
 import sys
+import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 PROTO_DIR = ROOT / "proto"
 CAPSULE_SERVICE = ROOT / "apps" / "capsule-service"
 SEAL_SERVICE = ROOT / "apps" / "seal-service"
 SEAL_GENERATED = SEAL_SERVICE / "gen"
+API_URL = f"http://localhost:{os.environ.get('CAPSULE_HTTP_PORT', '8080')}"
 
 
 def run(command: list[str], *, cwd: Path = ROOT) -> None:
@@ -65,6 +72,75 @@ def test() -> None:
     test_python()
 
 
+def compose_up() -> None:
+    require_command("docker")
+    run(["docker", "compose", "up", "--build", "--detach"])
+
+
+def compose_down() -> None:
+    require_command("docker")
+    run(["docker", "compose", "down"])
+
+
+def http(method: str, path: str, body: dict | None = None) -> tuple[int, dict]:
+    data = None if body is None else json.dumps(body).encode()
+    request = Request(
+        f"{API_URL}{path}", data=data, method=method, headers={"Content-Type": "application/json"}
+    )
+    try:
+        with urlopen(request, timeout=5) as response:
+            return response.status, json.load(response)
+    except HTTPError as error:
+        try:
+            return error.code, json.load(error)
+        except ValueError:
+            return error.code, {}
+
+
+def wait_for(url: str, *, timeout_seconds: int = 90) -> None:
+    deadline = time.monotonic() + timeout_seconds
+    last_error: Exception | None = None
+    while time.monotonic() < deadline:
+        try:
+            with urlopen(url, timeout=3) as response:
+                if response.status == 200:
+                    print(f"OK {url}")
+                    return
+        except (URLError, TimeoutError, ConnectionError) as error:
+            last_error = error
+        time.sleep(1)
+    raise RuntimeError(f"Service indisponible sur {url} : {last_error}")
+
+
+def expect(condition: bool, message: str) -> None:
+    if not condition:
+        raise RuntimeError(message)
+    print(f"OK {message}")
+
+
+def smoke() -> None:
+    wait_for(f"{API_URL}/actuator/health/readiness")
+    unlock_at = datetime.now(UTC).replace(microsecond=0) + timedelta(seconds=3)
+    status, created = http(
+        "POST",
+        "/api/capsules",
+        {"title": "Smoke test", "message": "Bonjour le futur", "unlockAt": unlock_at.isoformat()},
+    )
+    expect(status == 201, f"capsule déposée (HTTP {status})")
+    expect("message" not in created, "le contenu n'apparaît pas dans la réponse")
+
+    status, _ = http("GET", f"/api/capsules/{created['id']}/content")
+    expect(status == 423, f"ouverture refusée avant l'échéance (HTTP {status})")
+
+    time.sleep(max(0.0, (unlock_at - datetime.now(UTC)).total_seconds()) + 1.5)
+    status, opened = http("GET", f"/api/capsules/{created['id']}/content")
+    expect(status == 200, f"capsule ouverte après l'échéance (HTTP {status})")
+    expect(opened.get("message") == "Bonjour le futur", "contenu restitué à l'identique")
+
+    digest = hashlib.sha256(bytes.fromhex(opened["salt"]) + opened["message"].encode()).hexdigest()
+    expect(digest == created["commitment"], "engagement publié au dépôt vérifié")
+
+
 def prerequisites() -> None:
     checks = {
         "Python": sys.executable,
@@ -89,8 +165,11 @@ def prerequisites() -> None:
 
 
 COMMANDS = {
+    "compose-down": compose_down,
+    "compose-up": compose_up,
     "prerequisites": prerequisites,
     "proto-python": proto_python,
+    "smoke": smoke,
     "test": test,
     "test-java": test_java,
     "test-python": test_python,
