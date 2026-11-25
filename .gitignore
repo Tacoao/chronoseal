@@ -1,0 +1,35 @@
+# Système
+.DS_Store
+Thumbs.db
+
+# Éditeurs
+.idea/
+.vscode/
+*.iml
+*.swp
+
+# Java / Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+bin/
+out/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Code gRPC généré à partir de proto/ (jamais versionné)
+apps/seal-service/gen/
+
+# Secrets locaux : ne jamais versionner de clé
+.env
+*.key
+*.pem
+secrets/
