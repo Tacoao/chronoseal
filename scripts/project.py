@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Commandes portables du projet Chronoseal, utilisées en local et par la CI."""
+"""Commandes du projet Chronoseal, les mêmes en local et dans la CI."""
+
+# Compatible Python 3.9 pour que `prerequisites` puisse dire que la version est trop vieille.
 
 from __future__ import annotations
 
@@ -11,7 +13,7 @@ import shutil
 import subprocess
 import sys
 import time
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -67,6 +69,29 @@ def test_python() -> None:
     run([sys.executable, "-m", "pytest"], cwd=SEAL_SERVICE)
 
 
+def lint_java() -> None:
+    run([*gradle_command(), "checkstyleMain", "checkstyleTest"], cwd=CAPSULE_SERVICE)
+
+
+def lint_python() -> None:
+    ruff = [sys.executable, "-m", "ruff"]
+    run([*ruff, "check", "app", "tests"], cwd=SEAL_SERVICE)
+    run([*ruff, "format", "--check", "app", "tests"], cwd=SEAL_SERVICE)
+    run([*ruff, "check", "scripts"])
+    run([*ruff, "format", "--check", "scripts"])
+
+
+def lint() -> None:
+    lint_java()
+    lint_python()
+
+
+def verify() -> None:
+    """Portes locales : tests puis qualité. S'arrête au premier échec (code 1)."""
+    test()
+    lint()
+
+
 def test() -> None:
     test_java()
     test_python()
@@ -120,7 +145,7 @@ def expect(condition: bool, message: str) -> None:
 
 def smoke() -> None:
     wait_for(f"{API_URL}/actuator/health/readiness")
-    unlock_at = datetime.now(UTC).replace(microsecond=0) + timedelta(seconds=3)
+    unlock_at = datetime.now(timezone.utc).replace(microsecond=0) + timedelta(seconds=3)
     status, created = http(
         "POST",
         "/api/capsules",
@@ -132,7 +157,7 @@ def smoke() -> None:
     status, _ = http("GET", f"/api/capsules/{created['id']}/content")
     expect(status == 423, f"ouverture refusée avant l'échéance (HTTP {status})")
 
-    time.sleep(max(0.0, (unlock_at - datetime.now(UTC)).total_seconds()) + 1.5)
+    time.sleep(max(0.0, (unlock_at - datetime.now(timezone.utc)).total_seconds()) + 1.5)
     status, opened = http("GET", f"/api/capsules/{created['id']}/content")
     expect(status == 200, f"capsule ouverte après l'échéance (HTTP {status})")
     expect(opened.get("message") == "Bonjour le futur", "contenu restitué à l'identique")
@@ -167,12 +192,16 @@ def prerequisites() -> None:
 COMMANDS = {
     "compose-down": compose_down,
     "compose-up": compose_up,
+    "lint": lint,
+    "lint-java": lint_java,
+    "lint-python": lint_python,
     "prerequisites": prerequisites,
     "proto-python": proto_python,
     "smoke": smoke,
     "test": test,
     "test-java": test_java,
     "test-python": test_python,
+    "verify": verify,
 }
 
 

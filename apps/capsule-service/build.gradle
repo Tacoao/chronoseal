@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'checkstyle'
     id 'org.springframework.boot' version '3.5.16'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'com.google.protobuf' version '0.9.6'
@@ -23,6 +24,14 @@ java {
 
 repositories {
     mavenCentral()
+}
+
+checkstyle {
+    // Checkstyle 12.x est la dernière ligne compatible avec un runtime Java 17.
+    toolVersion = '12.3.1'
+    configFile = file('config/checkstyle/checkstyle.xml')
+    ignoreFailures = false
+    maxWarnings = 0
 }
 
 dependencies {
@@ -76,6 +85,18 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.named('test') {
     useJUnitPlatform()
+}
+
+tasks.withType(Checkstyle).configureEach {
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
+tasks.named('checkstyleMain') {
+    // On ne vérifie pas le code généré.
+    source = fileTree('src/main/java')
 }
 
 tasks.named('jar') {

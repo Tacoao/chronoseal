@@ -1,0 +1,6 @@
+# Pour scripts/. seal-service a sa propre config dans pyproject.toml.
+target-version = "py39"
+line-length = 100
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]

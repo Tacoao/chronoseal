@@ -17,7 +17,7 @@ from tests.conftest import START
 
 CAPSULE_ID = "7f6c1d1e-5b0a-4c55-9a43-0c7c2f0e9a11"
 UNLOCK_AT = START + timedelta(hours=1)
-MESSAGE = "France 2 - 1".encode()
+MESSAGE = b"France 2 - 1"
 
 
 def test_opens_after_unlock_date(sealer, clock):
