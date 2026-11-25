@@ -13,10 +13,16 @@ resources:
   - capsule-service/serviceaccount.yaml
   - capsule-service/deployment.yaml
   - capsule-service/service.yaml
+  - seal-service/serviceaccount.yaml
+  - seal-service/deployment.yaml
+  - seal-service/service.yaml
   - gateway/gateway.yaml
   - gateway/virtualservice.yaml
 
 images:
   - name: capsule-service
     newName: ghcr.io/tacoao/chronoseal/capsule-service
+    newTag: latest
+  - name: seal-service
+    newName: ghcr.io/tacoao/chronoseal/seal-service
     newTag: latest
