@@ -1,0 +1,10 @@
+[project]
+name = "seal-service"
+version = "0.1.0"
+description = "Service de scellement temporel de Chronoseal"
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# gen/ : code généré par `python scripts/project.py proto-python`
+pythonpath = [".", "gen"]

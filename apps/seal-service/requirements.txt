@@ -1,0 +1,4 @@
+cryptography==50.0.2
+grpcio==1.85.4
+grpcio-health-checking==1.85.4
+protobuf==7.36.2
