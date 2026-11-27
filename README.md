@@ -101,7 +101,7 @@ proto/                  contrat gRPC commun aux deux services
 k8s/base/               manifestes Kustomize et gateway Istio
 k8s/overlays/minikube/  variante locale avec des images construites dans Minikube
 scripts/project.py      commandes locales, les mêmes que dans la CI
-docs/                   architecture, déploiement et comptes rendus de TP
+docs/                   architecture et déploiement
 .github/                workflows et Dependabot
 ```
 
@@ -120,8 +120,8 @@ ensuite dans `main`.
 | Cloud 18/20 | RBAC, mTLS strict, images signées vérifiées, HTTPS | à faire |
 | Cloud 20/20 | déploiement dans un cloud | à faire |
 | Option | front-end | à faire |
-| TP01 DevOps | CI observable et bloquante ([compte rendu](docs/tp/TP01.md)) | fait, tag `checkpoint/01-ci` |
-| TP02 DevOps | preuves des images ([compte rendu](docs/tp/TP02.md)) | fait, tag `checkpoint/02-supply-chain` |
+| TP01 DevOps | CI observable et bloquante, branche `tp/01-ci` | fait, tag `checkpoint/01-ci` |
+| TP02 DevOps | preuves des images, branche `tp/02-supply-chain` | fait, tag `checkpoint/02-supply-chain` |
 
 Pour la partie sécurité, une partie du travail est déjà là : conteneurs non-root
 en lecture seule, un ServiceAccount par service, clé hors du dépôt et sondes de
@@ -143,4 +143,5 @@ puis scannées par Trivy sur leur digest.
 ## Commits
 
 Chaque commit commence par l'étape qu'il traite : `[Cloud 14/20]` pour le barème
-du projet, `[TP01 §2]` pour une section d'un TP.
+du projet, `[TP01 §2]` pour une section d'un TP. Pour relire tout un TP, il suffit
+de filtrer l'historique, par exemple `git log --oneline --grep 'TP02'`.
